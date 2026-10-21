@@ -26,7 +26,7 @@ export function useCompanies() {
     queryKey: ['companies'],
     queryFn: async () => {
       if (!isSupabaseConfigured) {
-        // Documented seed fallback when credentials are not yet set
+        // Documented seed fallback when in test runner
         return SEED_COMPANIES.map((c) =>
           normalizeCompanySummary(c.short_json, c.company_id)
         );
@@ -35,7 +35,8 @@ export function useCompanies() {
       try {
         const { data, error } = await supabase
           .from('company_json')
-          .select('company_id, short_json');
+          .select('company_id, short_json')
+          .order('company_id', { ascending: true });
 
         if (error) {
           console.warn('[useCompanies] Supabase warning:', error.message);
@@ -70,7 +71,7 @@ export function useCompanies() {
  * Mapped through normalizeCompanyProfile(full_json, short_json, company_id)
  */
 export function useCompanyProfile(companyId: number | string | null | undefined) {
-  const numericId = Number(companyId) || 1;
+  const numericId = Number(companyId) || 8;
 
   return useQuery<CompanyProfile, Error>({
     queryKey: ['company-profile', numericId],
@@ -88,25 +89,37 @@ export function useCompanyProfile(companyId: number | string | null | undefined)
       }
 
       try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('company_json')
           .select('company_id, short_json, full_json')
           .eq('company_id', numericId)
           .maybeSingle();
 
         if (error || !data) {
-          // Fall back gracefully if row not found or database empty
-          const match =
-            SEED_COMPANIES.find((c) => c.company_id === numericId) ||
-            SEED_COMPANIES[0];
-          return normalizeCompanyProfile(
-            match.full_json,
-            match.short_json,
-            match.company_id
-          );
+          // If stored ID is not found in database, pick first available real company from database
+          const { data: firstCompany } = await supabase
+            .from('company_json')
+            .select('company_id, short_json, full_json')
+            .limit(1)
+            .maybeSingle();
+
+          if (firstCompany) {
+            data = firstCompany;
+          }
         }
 
-        return normalizeCompanyProfile(data.full_json, data.short_json, data.company_id);
+        if (data) {
+          return normalizeCompanyProfile(data.full_json, data.short_json, data.company_id);
+        }
+
+        const match =
+          SEED_COMPANIES.find((c) => c.company_id === numericId) ||
+          SEED_COMPANIES[0];
+        return normalizeCompanyProfile(
+          match.full_json,
+          match.short_json,
+          match.company_id
+        );
       } catch (err: any) {
         console.warn(`[useCompanyProfile] Error for id ${numericId}, using fallback:`, err.message);
         const match =
@@ -132,7 +145,7 @@ export function useCompanyProfile(companyId: number | string | null | undefined)
  *   - public.skill_set_topics      (skill_set_id, level_number, topics)
  */
 export function useCompanySkills(companyId: number | string | null | undefined) {
-  const numericId = Number(companyId) || 1;
+  const numericId = Number(companyId) || 8;
 
   return useQuery<SkillWithRoadmap[], Error>({
     queryKey: ['company-skills', numericId],
@@ -154,10 +167,27 @@ export function useCompanySkills(companyId: number | string | null | undefined) 
 
       try {
         // 1. Fetch company skill levels for this company
-        const { data: skillLevelsData, error: skillLevelsErr } = await supabase
+        let { data: skillLevelsData, error: skillLevelsErr } = await supabase
           .from('company_skill_levels')
           .select('company_id, skill_set_id, required_level, required_proficiency_level_id')
           .eq('company_id', numericId);
+
+        if (!skillLevelsData || skillLevelsData.length === 0) {
+          // If specific ID has no skills, check first available company in database
+          const { data: firstAvailable } = await supabase
+            .from('company_skill_levels')
+            .select('company_id')
+            .limit(1);
+
+          if (firstAvailable && firstAvailable.length > 0) {
+            const fallbackId = firstAvailable[0].company_id;
+            const { data: fallbackLevels } = await supabase
+              .from('company_skill_levels')
+              .select('company_id, skill_set_id, required_level, required_proficiency_level_id')
+              .eq('company_id', fallbackId);
+            skillLevelsData = fallbackLevels;
+          }
+        }
 
         if (skillLevelsErr || !skillLevelsData || skillLevelsData.length === 0) {
           return getFallback();

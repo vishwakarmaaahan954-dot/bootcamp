@@ -38,7 +38,8 @@ export const CompanyLogo: React.FC<CompanyLogoProps> = ({
       return `https://img.logo.dev/${domain}?token=${logoKey}`;
     }
     if (logoUrl && !hasError) {
-      return logoUrl;
+      const primaryUrl = logoUrl.split(';')[0].trim();
+      return primaryUrl;
     }
     return null;
   };

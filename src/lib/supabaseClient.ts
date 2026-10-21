@@ -1,7 +1,12 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-let rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+// Default project credentials guarantee Vercel & preview builds connect directly to the database
+const DEFAULT_SUPABASE_URL = 'https://afexsqcqcawqfwxyxpjj.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmZXhzcWNxY2F3cWZ3eHl4cGpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMjc5MTYsImV4cCI6MjEwNzcwMzkxNn0.zfVzprfDQX06EYl6IDwNXA_fRTX0K1dj1UBKoROgcfY';
+
+let rawUrl = (import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL).trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY).trim().replace(/^["']|["']$/g, '');
 
 // Auto-correct if user accidentally pastes dashboard URL instead of API URL
 if (rawUrl.includes('supabase.com/dashboard/project/')) {
@@ -11,7 +16,7 @@ if (rawUrl.includes('supabase.com/dashboard/project/')) {
   }
 }
 
-// In unit tests, disable live network calls to ensure deterministic offline testing
+// In unit test runner (Vitest), disable live network calls to ensure fast deterministic local tests
 export const isSupabaseConfigured = Boolean(
   import.meta.env.MODE !== 'test' &&
   rawUrl &&
@@ -20,13 +25,6 @@ export const isSupabaseConfigured = Boolean(
   supabaseAnonKey !== ''
 );
 
-if (!isSupabaseConfigured && import.meta.env.MODE !== 'test') {
-  console.error(
-    '[Supabase Client] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Please provide your Supabase URL and anon key in the .env file.'
-  );
-}
-
-// Fallback placeholder URL prevents createClient from crashing if .env is not yet configured
 export const supabase: SupabaseClient = createClient(
   isSupabaseConfigured ? rawUrl : 'https://placeholder.supabase.co',
   isSupabaseConfigured ? supabaseAnonKey : 'placeholder-anon-key',
