@@ -8,8 +8,11 @@ import {
   Video,
   CheckCircle2,
   HelpCircle,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { useCompany } from '@/context/CompanyContext';
+import { useCompanyProfile } from '@/lib/companyApi';
 import { CompanyLogo } from '@/components/CompanyLogo';
 import { buildIntelligenceSections, IntelligenceSection, IntelligenceField } from '@/data/intelligenceData';
 import { isNullish, splitItems } from '@/lib/companyData';
@@ -170,8 +173,19 @@ const SectionCard = memo(function SectionCard({
 });
 
 export const CompanyIntelligence: React.FC = () => {
-  const { currentCompany, profile, summary } = useCompany();
+  const { selectedCompany } = useCompany();
   const navigate = useNavigate();
+
+  // Supabase query for company full_json
+  const {
+    data: profile,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useCompanyProfile(selectedCompany?.companyId);
+
+  const summary = profile?.summary;
 
   const [activeTab, setActiveTab] = useState(0);
   const isScrollingRef = useRef(false);
@@ -179,10 +193,11 @@ export const CompanyIntelligence: React.FC = () => {
 
   // Route Guard: If no company data exists even after storage check, navigate back to "/"
   useEffect(() => {
-    if (!currentCompany && !summary) {
+    const stored = localStorage.getItem('selected-company');
+    if (!stored && !selectedCompany) {
       navigate('/', { replace: true });
     }
-  }, [currentCompany, summary, navigate]);
+  }, [selectedCompany, navigate]);
 
   const sections = useMemo(() => {
     return buildIntelligenceSections(profile);
@@ -241,14 +256,58 @@ export const CompanyIntelligence: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [sections]);
 
-  if (!summary) {
+  // Error State
+  if (isError) {
     return (
-      <div className="flex h-96 w-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-3 border-blue-600 border-t-transparent" />
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Loading Company Intelligence...
-          </span>
+      <div className="max-w-2xl mx-auto my-16 p-8 rounded-2xl border border-red-200 bg-red-50/50 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mb-3">
+          <AlertCircle className="h-6 w-6" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900 font-heading">
+          Failed to load company intelligence
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          {error?.message || 'Database connection error while retrieving company profile.'}
+        </p>
+        <div className="mt-6">
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-xs"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry Query
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading Skeleton State
+  if (isLoading || !summary) {
+    return (
+      <div className="min-h-full pb-20">
+        <div className="border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8 py-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-slate-200" />
+              <div className="space-y-2">
+                <div className="w-48 h-5 rounded bg-slate-200" />
+                <div className="w-32 h-3 rounded bg-slate-100" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-pulse">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+              <div className="h-5 w-40 rounded bg-slate-200" />
+              <div className="space-y-3 pt-2">
+                <div className="h-4 w-full rounded bg-slate-100" />
+                <div className="h-4 w-3/4 rounded bg-slate-100" />
+                <div className="h-4 w-5/6 rounded bg-slate-100" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -355,4 +414,3 @@ export const CompanyIntelligence: React.FC = () => {
     </div>
   );
 };
-

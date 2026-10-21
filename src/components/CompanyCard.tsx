@@ -49,7 +49,7 @@ export const CompanyCard = memo(function CompanyCard({ company }: CompanyCardPro
 
   const handleClick = () => {
     // 1. Save selected-company to localStorage + update CompanyContext via selectCompany
-    selectCompany(company.id);
+    selectCompany(company.id, company.name, company.logo_url);
     // 2. Navigate to /company/intelligence
     navigate('/company/intelligence');
   };

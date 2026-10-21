@@ -7,17 +7,17 @@ import { useCompany } from '@/context/CompanyContext';
 export const AppLayout: React.FC = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { selectedCompany, summary, currentCompany } = useCompany();
+  const { selectedCompany, summary } = useCompany();
   const navigate = useNavigate();
   const location = useLocation();
 
   // Route Guard: If selected-company is missing, redirect to "/"
   useEffect(() => {
     const stored = localStorage.getItem('selected-company');
-    if (!stored && !selectedCompany && !currentCompany) {
+    if (!stored && !selectedCompany) {
       navigate('/', { replace: true });
     }
-  }, [selectedCompany, currentCompany, navigate]);
+  }, [selectedCompany, navigate]);
 
   const getSubpageName = () => {
     if (location.pathname.includes('/skills')) return 'Skill Intelligence';

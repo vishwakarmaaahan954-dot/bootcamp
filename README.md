@@ -28,6 +28,33 @@ This portal is a mobile-first, enterprise-grade Single Page Application (SPA) bu
 
 ---
 
+## ⚡ Phase 2 — Supabase Data Connection
+
+To connect the application to your live Supabase database:
+
+1. Paste `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` into `.env`:
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+2. Run:
+   ```bash
+   npm install && npm run dev
+   ```
+
+### Database Architecture
+- **Company Data (`public.company_json`)**: Only this table is queried for company data (avoiding joins across 90+ normalized tables).
+  - Cards & Directory: `SELECT company_id, short_json FROM company_json`
+  - Detail Profile: `SELECT company_id, short_json, full_json FROM company_json WHERE company_id = :id`
+- **Skill Competency Data**: Loaded from the 4 standard skill tables:
+  - `public.company_skill_levels`
+  - `public.skill_set_master`
+  - `public.proficiency_levels`
+  - `public.skill_set_topics`
+- **Fallback**: If `.env` is unconfigured, the application gracefully renders using the documented seed dataset fallback.
+
+---
+
 ## 🧭 Routes & Navigation Hierarchy
 
 The application strictly implements nested React Router 6 routes:

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, X, Layers, RotateCcw } from 'lucide-react';
-import { SEED_COMPANIES } from '@/data/seedCompanies';
-import { normalizeCompanySummary, CompanySummary } from '@/lib/companyData';
+import { Search, X, Layers, RotateCcw, AlertCircle, RefreshCw } from 'lucide-react';
+import { useCompanies } from '@/lib/companyApi';
+import { CompanySummary } from '@/lib/companyData';
 import { CompanyCard } from '@/components/CompanyCard';
 
 const COLLEGE_NAME = "JSS Academy Of Technical Education";
@@ -13,7 +13,9 @@ export const Index: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All');
-  const [isLoading] = useState(false);
+
+  // React Query hook reading from Supabase company_json
+  const { data: companiesData, isLoading, isError, error, refetch } = useCompanies();
 
   // 200ms debounce on search
   useEffect(() => {
@@ -23,10 +25,10 @@ export const Index: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Summaries
+  // Summaries from React Query
   const allSummaries: CompanySummary[] = useMemo(() => {
-    return SEED_COMPANIES.map((c) => normalizeCompanySummary(c.short_json, c.company_id));
-  }, []);
+    return companiesData || [];
+  }, [companiesData]);
 
   // Category counts
   const categoryCounts = useMemo(() => {
@@ -195,8 +197,30 @@ export const Index: React.FC = () => {
           </div>
         </div>
 
-        {/* 8-Card Skeleton when loading */}
-        {isLoading ? (
+        {/* Error State */}
+        {isError ? (
+          <div className="text-center py-12 px-4 rounded-2xl border border-red-200 bg-red-50/50">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mb-3">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 font-heading">
+              Unable to load recruiting companies
+            </h3>
+            <p className="mt-1 text-sm text-slate-600 max-w-sm mx-auto">
+              {error?.message || 'A network error occurred while connecting to the database.'}
+            </p>
+            <div className="mt-5">
+              <button
+                onClick={() => refetch()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-xs"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Retry Connection
+              </button>
+            </div>
+          </div>
+        ) : isLoading ? (
+          /* 8-Card Skeleton when loading */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div
@@ -264,4 +288,3 @@ export const Index: React.FC = () => {
     </div>
   );
 };
-

@@ -1,13 +1,6 @@
-import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import { SEED_COMPANIES, SeedCompany } from '@/data/seedCompanies';
-import {
-  normalizeCompanyProfile,
-  normalizeCompanySummary,
-  normalizeDashboardSkills,
-  CompanyProfile,
-  CompanySummary,
-  DashboardSkill,
-} from '@/lib/companyData';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { CompanyProfile, CompanySummary } from '@/lib/companyData';
+import { useCompanyProfile } from '@/lib/companyApi';
 
 export interface SelectedCompanyStorage {
   companyId: number;
@@ -17,12 +10,10 @@ export interface SelectedCompanyStorage {
 
 interface CompanyContextType {
   selectedCompany: SelectedCompanyStorage | null;
-  currentCompany: SeedCompany | null;
+  companyId: number | null;
   profile: CompanyProfile | null;
   summary: CompanySummary | null;
-  skills: DashboardSkill[];
-  allCompanies: SeedCompany[];
-  selectCompany: (companyId: number) => void;
+  selectCompany: (companyId: number, companyName?: string, logoUrl?: string) => void;
   isLoading: boolean;
 }
 
@@ -43,27 +34,17 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     return null;
   });
 
-  const [isLoading] = useState(false);
+  // Query company profile from React Query hook
+  const { data: profile, isLoading } = useCompanyProfile(selectedCompany?.companyId);
 
-  // Sync / validate on startup
+  // Restore/Sync on startup
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed: SelectedCompanyStorage = JSON.parse(stored);
-        const match = SEED_COMPANIES.find((c) => c.company_id === parsed.companyId);
-        if (match) {
+        if (parsed && parsed.companyId) {
           setSelectedCompany(parsed);
-        } else if (SEED_COMPANIES.length > 0) {
-          // If stored ID doesn't exist anymore, fallback to first company
-          const defaultCompany = SEED_COMPANIES[0];
-          const newSelection = {
-            companyId: defaultCompany.company_id,
-            companyName: defaultCompany.short_json.name,
-            logoUrl: defaultCompany.short_json.logo_url,
-          };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(newSelection));
-          setSelectedCompany(newSelection);
         }
       }
     } catch (err) {
@@ -71,48 +52,39 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const selectCompany = (companyId: number) => {
-    const match = SEED_COMPANIES.find((c) => c.company_id === companyId);
-    if (match) {
-      const payload: SelectedCompanyStorage = {
-        companyId: match.company_id,
-        companyName: match.short_json.name,
-        logoUrl: match.short_json.logo_url,
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      setSelectedCompany(payload);
-    }
+  const selectCompany = (companyId: number, companyName?: string, logoUrl?: string) => {
+    const payload: SelectedCompanyStorage = {
+      companyId,
+      companyName: companyName || (selectedCompany?.companyId === companyId ? selectedCompany.companyName : 'Company'),
+      logoUrl: logoUrl || (selectedCompany?.companyId === companyId ? selectedCompany.logoUrl : ''),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    setSelectedCompany(payload);
   };
 
-  const currentCompany = useMemo(() => {
-    if (!selectedCompany) return null;
-    return SEED_COMPANIES.find((c) => c.company_id === selectedCompany.companyId) || null;
-  }, [selectedCompany]);
-
-  const profile = useMemo(() => {
-    if (!currentCompany) return null;
-    return normalizeCompanyProfile(currentCompany.full_json, currentCompany.short_json, currentCompany.company_id);
-  }, [currentCompany]);
-
-  const summary = useMemo(() => {
-    if (!currentCompany) return null;
-    return normalizeCompanySummary(currentCompany.short_json, currentCompany.company_id);
-  }, [currentCompany]);
-
-  const skills = useMemo(() => {
-    if (!currentCompany) return [];
-    return normalizeDashboardSkills(currentCompany.skill_levels);
-  }, [currentCompany]);
+  const summary: CompanySummary | null = profile?.summary || (selectedCompany ? {
+    id: selectedCompany.companyId,
+    name: selectedCompany.companyName,
+    short_name: selectedCompany.companyName,
+    logo_url: selectedCompany.logoUrl,
+    category: 'Enterprise',
+    company_type: 'Dream',
+    incorporation_year: 'N/A',
+    employee_size: 'N/A',
+    headquarters_address: 'N/A',
+    operating_countries: 'N/A',
+    office_locations: 'N/A',
+    yoy_growth_rate: 'N/A',
+    website_url: '',
+  } : null);
 
   return (
     <CompanyContext.Provider
       value={{
         selectedCompany,
-        currentCompany,
-        profile,
+        companyId: selectedCompany?.companyId || null,
+        profile: profile || null,
         summary,
-        skills,
-        allCompanies: SEED_COMPANIES,
         selectCompany,
         isLoading,
       }}
@@ -129,4 +101,3 @@ export function useCompany(): CompanyContextType {
   }
   return context;
 }
-
